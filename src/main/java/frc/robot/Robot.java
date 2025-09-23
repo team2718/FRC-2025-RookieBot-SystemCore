@@ -42,7 +42,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotPeriodic() {
-    // robotCode.periodic();
+     robotCode.periodic();
   }
 
   /**

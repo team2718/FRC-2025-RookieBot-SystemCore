@@ -4,6 +4,7 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 
 import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 public class RobotCode {
 
@@ -30,6 +31,12 @@ Runs intake while the right bumper is pressed, runs outtake while the left bumpe
 
 //remeber to program hanging! X & Y Buttons are set aside for 'move to drop off'&'move to collection'
     public void periodic() {
+
+        SmartDashboard.putNumber("Left Arm Position", leftMotorArm.getAbsoluteEncoder().getVelocity());
+        SmartDashboard.putNumber("Right Arm Position", rightMotorArm.getAbsoluteEncoder().getVelocity());
+        SmartDashboard.putNumber("Top Intake Position", topMotorIntake.getAbsoluteEncoder().getVelocity());
+        SmartDashboard.putNumber("Bottom Intake Position", bottomMotorIntake.getAbsoluteEncoder().getVelocity());
+
         if (!aPressed && !bPressed){
             if (driverXboxController.getRightTriggerAxis() > 0.1 && leftMotorArm.getAbsoluteEncoder().getPosition() < 120) {
                 leftMotorArm.set(0.5);
@@ -44,11 +51,11 @@ Runs intake while the right bumper is pressed, runs outtake while the left bumpe
                 rightMotorArm.set(0);
             }
 
-            if (driverXboxController.getRightBumperButtonPressed()){
+            if (driverXboxController.getRightBumperButton()){
                 topMotorIntake.set(0.5);
                 bottomMotorIntake.set(-0.5);
             }
-            else if (driverXboxController.getLeftBumperButtonPressed()){
+            else if (driverXboxController.getLeftBumperButton()){
                 topMotorIntake.set(-0.5);
                 bottomMotorIntake.set(0.5);
             }
