@@ -97,36 +97,40 @@ public class SwerveSubsystem extends SubsystemBase {
      */
     public SwerveSubsystem() {
         SwerveModuleConfig frontLeftConfig = new SwerveModuleConfig()
-                .driveMotorID(1)
-                .angleMotorID(2)
+                .driveMotorID(2)
+                .angleMotorID(1)
                 .absoluteEncoderPort(0)
-                .angleOffset(89.5)
+                .angleOffset(252.5)
+                .invertAngleMotor(true)
                 .x(0.5)
                 .y(0.5);
 
         SwerveModuleConfig frontRightConfig = new SwerveModuleConfig()
-                .driveMotorID(3)
-                .angleMotorID(4)
+                .driveMotorID(4)
+                .angleMotorID(3)
                 .absoluteEncoderPort(1)
-                .angleOffset(175.5)
+                .angleOffset(112.8)
+                .invertAngleMotor(true)
                 .x(0.5)
                 .y(-0.5);
 
-        SwerveModuleConfig backLeftConfig = new SwerveModuleConfig()
-                .driveMotorID(5)
-                .angleMotorID(6)
-                .absoluteEncoderPort(2)
-                .angleOffset(49)
-                .x(-0.5)
-                .y(0.5);
-
         SwerveModuleConfig backRightConfig = new SwerveModuleConfig()
-                .driveMotorID(7)
-                .angleMotorID(8)
-                .absoluteEncoderPort(3)
-                .angleOffset(12.5)
+                .driveMotorID(6)
+                .angleMotorID(5)
+                .absoluteEncoderPort(2)
+                .angleOffset(64.5)
+                .invertAngleMotor(true)
                 .x(-0.5)
                 .y(-0.5);
+
+        SwerveModuleConfig backLeftConfig = new SwerveModuleConfig()
+                .driveMotorID(8)
+                .angleMotorID(7)
+                .absoluteEncoderPort(3)
+                .angleOffset(220.0)
+                .invertAngleMotor(true)
+                .x(-0.5)
+                .y(0.5);
 
         frontLeft = new SwerveModule("Front Left", frontLeftConfig);
         frontRight = new SwerveModule("Front Right", frontRightConfig);
@@ -170,7 +174,8 @@ public class SwerveSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        SwerveModuleState[] moduleStates = kinematics.toSwerveModuleStates(new ChassisSpeeds());
+        SwerveModuleState[] moduleStates = kinematics.toSwerveModuleStates(this.desiredSpeeds);
+
         frontLeft.setDesiredState(moduleStates[0]);
         frontRight.setDesiredState(moduleStates[1]);
         backLeft.setDesiredState(moduleStates[2]);

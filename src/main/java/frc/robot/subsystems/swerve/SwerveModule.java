@@ -4,10 +4,16 @@ import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkBase.PersistMode;
+import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -63,7 +69,7 @@ public class SwerveModule {
     private static final boolean USE_COSINE_COMPENSATION = true;
 
     private static final double WHEEL_RADIUS_METERS = Meters.convertFrom(2, Inches);
-    private static final double DRIVE_CONVERSION_FACTOR = 1.0;
+    private static final double DRIVE_CONVERSION_FACTOR = 3.0;
     private static final double ANGLE_CONVERSION_FACTOR = 1.0;
 
     private final SwerveModuleConfig config;
@@ -73,7 +79,7 @@ public class SwerveModule {
     final Translation2d location;
     private final String localName;
 
-    final PIDController angleController = new PIDController(0.1, 0.0, 0.0);
+    final PIDController angleController = new PIDController(0.10, 0.0, 0.0);
 
     /**
      * Represents a single swerve module in a swerve drive system.
@@ -91,8 +97,24 @@ public class SwerveModule {
      *               - {@code y}: The y-coordinate of the module's location.
      */
     public SwerveModule(String localName, SwerveModuleConfig config) {
+        // Drive Motor
         this.driveMotor = new TalonFX(config.driveMotorID);
+        TalonFXConfiguration driveMotorConfiguration = new TalonFXConfiguration();
+        driveMotorConfiguration.CurrentLimits.SupplyCurrentLimit = 40;
+        driveMotorConfiguration.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+        driveMotorConfiguration.Slot0.kP = 0.1;
+        this.driveMotor.getConfigurator().apply(driveMotorConfiguration);
+
+        // Angle Motor
         this.angleMotor = new SparkMax(0, config.angleMotorID, MotorType.kBrushless);
+        SparkMaxConfig angleMotorConfig = new SparkMaxConfig();
+        angleMotorConfig.limitSwitch.forwardLimitSwitchEnabled(false);
+        angleMotorConfig.limitSwitch.reverseLimitSwitchEnabled(false);
+        angleMotorConfig.smartCurrentLimit(20);
+        angleMotorConfig.inverted(config.invertAngleMotor);
+        angleMotorConfig.idleMode(IdleMode.kCoast);
+        this.angleMotor.configure(angleMotorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
         this.absoluteEncoder = new AnalogInput(config.absoluteEncoderPort);
         this.config = config;
         this.location = new Translation2d(config.x, config.y);
@@ -117,12 +139,14 @@ public class SwerveModule {
             desiredModuleState.speed *= desiredModuleState.angle.minus(getModuleRotation()).getCos();
         }
 
+        SmartDashboard.putNumber(localName + "/speed_output", desiredModuleState.speed / (2 * WHEEL_RADIUS_METERS) * DRIVE_CONVERSION_FACTOR);
+
         driveMotor.setControl(
-            new VelocityVoltage(desiredModuleState.speed / WHEEL_RADIUS_METERS * DRIVE_CONVERSION_FACTOR)
+            new VelocityVoltage(desiredModuleState.speed / (2 * WHEEL_RADIUS_METERS) * DRIVE_CONVERSION_FACTOR)
         );
 
         angleMotor.setVoltage(
-            -angleController.calculate(getAbsolutePositionDegrees(), (desiredModuleState.angle.getDegrees() + 360) % 360.0)
+            angleController.calculate(getAbsolutePositionDegrees(), (desiredModuleState.angle.getDegrees() + 360) % 360.0)
         );
 
         SmartDashboard.putNumber(localName + "/angle_raw", getRawAbsolutePositionsDegrees());
@@ -156,7 +180,7 @@ public class SwerveModule {
     }
 
     private Rotation2d getModuleRotation() {
-        return Rotation2d.fromDegrees(getRawAbsolutePositionsDegrees());
+        return Rotation2d.fromDegrees(getAbsolutePositionDegrees());
     }
 
     public SwerveModuleState getState() {
