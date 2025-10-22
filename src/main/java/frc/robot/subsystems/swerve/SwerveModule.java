@@ -20,9 +20,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.units.measure.Distance;
-import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj.AnalogInput;
 import edu.wpi.first.wpilibj.DutyCycleEncoder;
 import edu.wpi.first.wpilibj.RobotController;
@@ -70,8 +67,6 @@ public class SwerveModule {
 
     private static final double WHEEL_RADIUS_METERS = Meters.convertFrom(2, Inches);
     private static final double DRIVE_CONVERSION_FACTOR = 3.0;
-    private static final double ANGLE_CONVERSION_FACTOR = 1.0;
-
     private final SwerveModuleConfig config;
     private final TalonFX driveMotor;
     private final SparkMax angleMotor;

@@ -1,6 +1,5 @@
 package frc.robot;
 
-import com.ctre.phoenix6.hardware.TalonFX;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
@@ -39,17 +38,20 @@ public class RobotCode {
     boolean bPressed = false;
     double actionTimer = 0;
 
+    String selectedAuto = Robot.kMoveAuto;
+
     public void init() {
 
         SparkMaxConfig armConfig = new SparkMaxConfig();
         armConfig.smartCurrentLimit(40);
         armConfig.idleMode(IdleMode.kBrake);
+        armConfig.inverted(true);
 
         rightMotorArm.configure(armConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
         armConfig.absoluteEncoder.zeroCentered(true);
         armConfig.absoluteEncoder.zeroOffset(0.948);
-        armConfig.inverted(true);
+        armConfig.inverted(false);
 
         leftMotorArm.configure(armConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
@@ -80,50 +82,43 @@ public class RobotCode {
 
     public void periodic() {
 
-        if (DriverStation.isAutonomous()) {
-            swerveSubsystem.setDesiredSpeeds(0.3, 0, 0);
-
-            armPIDController.setGoal(0);
-
-            double ffVoltage = armFeedforward.calculate(armPIDController.getSetpoint().position + 90,
-            armPIDController.getSetpoint().velocity);
-            double pidVoltage = armPIDController.calculate(getArmPositionDegrees());
-            double commandedVoltage = ffVoltage + pidVoltage;
-
-            commandedVoltage = Math.max(-7, Math.min(7, commandedVoltage));
-
-            leftMotorArm.setVoltage(-commandedVoltage);
-            rightMotorArm.setVoltage(-commandedVoltage);
-            return;
-        }
+        //// Always run these ////
 
         SmartDashboard.putNumber("Encoder Arm Position", getArmPositionDegrees());
         SmartDashboard.putNumber("Goal Arm Position ", armPIDController.getSetpoint().position);
 
+        runArmPIDLoop();
+
+        //// Autonomous ////
+
+        if (DriverStation.isAutonomous()) {
+            if (selectedAuto.equals(Robot.kMoveAuto)) {
+                swerveSubsystem.setDesiredSpeeds(0.3, 0, 0);
+            }
+
+            if (selectedAuto.equals(Robot.kStillAuto)) {
+                swerveSubsystem.setDesiredSpeeds(0.0, 0, 0);
+            }
+
+            // Always keep arm up and out of the way in auto
+            armPIDController.setGoal(0);
+            return;
+        }
+
+        //// Teleop ////
+
+        // Swerve driver control
         swerveSubsystem.setDesiredSpeeds(driverXboxController.getLeftY(), driverXboxController.getLeftX(),
                 2.0 * driverXboxController.getRightX());
 
-        // if (!aPressed && !bPressed) {
-        // if (driverXboxController.getRightTriggerAxis() > 0.1
-        // && getArmPositionDegrees() < 80) {
-        // leftMotorArm.set(-0.1);
-        // rightMotorArm.set(-0.1);
-        // } else if (driverXboxController.getLeftTriggerAxis() > 0.1
-        // && getArmPositionDegrees() > -80) {
-        // leftMotorArm.set(0.1);
-        // rightMotorArm.set(0.1);
-        // } else {
-        // leftMotorArm.set(0);
-        // rightMotorArm.set(0);
-        // }
-        // }
-
+        // Default to arm up
         armPIDController.setGoal(0);
 
         // Ground Coral
         if (driverXboxController.getAButton()) {
             armPIDController.setGoal(85);
         }
+
         // Algae Removal
         if (driverXboxController.getBButton()) {
             armPIDController.setGoal(40);
@@ -133,16 +128,6 @@ public class RobotCode {
         if (driverXboxController.getYButton()) {
             armPIDController.setGoal(-30);
         }
-
-        double ffVoltage = armFeedforward.calculate(armPIDController.getSetpoint().position + 90,
-                armPIDController.getSetpoint().velocity);
-        double pidVoltage = armPIDController.calculate(getArmPositionDegrees());
-        double commandedVoltage = ffVoltage + pidVoltage;
-
-        commandedVoltage = Math.max(-7, Math.min(7, commandedVoltage));
-
-        leftMotorArm.setVoltage(-commandedVoltage);
-        rightMotorArm.setVoltage(-commandedVoltage);
 
         // End Effector / Intake
         if (driverXboxController.getLeftBumperButton()) {
@@ -155,68 +140,25 @@ public class RobotCode {
             topMotorIntake.set(0);
             bottomMotorIntake.set(0);
         }
+    }
 
-        // if (!aPressed && !bPressed) {
-        // if (driverXboxController.getAButtonPressed()) {
-        // // If A is pressed and a cycle isn't running, start the A cycle
-        // // aPressed = true;
-        // actionTimer = 0;
-        // } else if (driverXboxController.getBButtonPressed()) {
-        // // If B is pressed and a cycle isn't running, start the B cycle
-        // // bPressed = true;
-        // actionTimer = 0;
-        // }
-        // }
+    private void runArmPIDLoop() {
 
-        // if (aPressed) {
-        // if (leftMotorArm.getAbsoluteEncoder().getPosition() > 0) {
-        // // Lower the arm to bottom
-        // leftMotorArm.set(-0.5);
-        // rightMotorArm.set(-0.5);
-        // } else if (actionTimer < 20) {
-        // // For one second, spin the intake wheels
-        // leftMotorArm.set(0);
-        // rightMotorArm.set(0);
-        // actionTimer++;
-        // topMotorIntake.set(0.5);
-        // bottomMotorIntake.set(-0.5);
-        // } else {
-        // // Stop motors and end cycle
-        // topMotorIntake.set(0);
-        // bottomMotorIntake.set(0);
-        // leftMotorArm.set(0);
-        // rightMotorArm.set(0);
-        // actionTimer = 0;
-        // aPressed = false;
-        // }
-        // }
+        // +90 is an offset to account for us treating arm up as 0deg but the feed
+        // forward model needing arm up to be 90.
+        double ffVoltage = armFeedforward.calculate(armPIDController.getSetpoint().position + 90,
+                armPIDController.getSetpoint().velocity);
+        double pidVoltage = armPIDController.calculate(getArmPositionDegrees());
+        double commandedVoltage = ffVoltage + pidVoltage;
 
-        // if (bPressed) {
-        // if (leftMotorArm.getAbsoluteEncoder().getPosition() < 80) {
-        // // Raise the arm to 80 degrees
-        // leftMotorArm.set(0.5);
-        // rightMotorArm.set(0.5);
-        // } else if (actionTimer < 30) {
-        // // Wait 1.5 seconds
-        // leftMotorArm.set(0);
-        // rightMotorArm.set(0);
-        // actionTimer++;
-        // } else if (actionTimer < 50) {
-        // // Spin outtake wheels for one second
-        // leftMotorArm.set(0);
-        // rightMotorArm.set(0);
-        // actionTimer++;
-        // topMotorIntake.set(-0.5);
-        // bottomMotorIntake.set(0.5);
-        // } else {
-        // // Stop motors and end cycle
-        // leftMotorArm.set(0); // These ones on the arm motors seem a little redundant
-        // rightMotorArm.set(0);
-        // topMotorIntake.set(0);
-        // bottomMotorIntake.set(0);
-        // actionTimer = 0;
-        // bPressed = false;
-        // }
-        // }
+        // Clamp voltage
+        commandedVoltage = Math.max(-9, Math.min(9, commandedVoltage));
+
+        leftMotorArm.setVoltage(commandedVoltage);
+        rightMotorArm.setVoltage(commandedVoltage);
+    }
+
+    public void setAuto(String m_autoSelected) {
+        this.selectedAuto = m_autoSelected;
     }
 }
