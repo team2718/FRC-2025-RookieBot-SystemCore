@@ -7,6 +7,8 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.util.sendable.Sendable;
+import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj.OnboardIMU;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -178,12 +180,6 @@ public class SwerveSubsystem extends SubsystemBase {
         frontRight.setDesiredState(moduleStates[1]);
         backLeft.setDesiredState(moduleStates[2]);
         backRight.setDesiredState(moduleStates[3]);
-
-        poseEstimator.update(getYaw(), getModulePositions());
-
-        field.setRobotPose(poseEstimator.getEstimatedPosition());
-
-        SmartDashboard.putData("Field", field);
     }
 
     public Pose2d getPose() {

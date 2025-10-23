@@ -12,13 +12,16 @@ import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.PowerDistribution;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import frc.robot.subsystems.swerve.SwerveSubsystem;
 
 public class RobotCode {
 
-    PowerDistribution hub = new PowerDistribution(0);
+    PowerDistribution pdh = new PowerDistribution(0);
 
     XboxController driverXboxController = new XboxController(0);
 
@@ -29,16 +32,18 @@ public class RobotCode {
     SparkMax topMotorIntake = new SparkMax(0, 12, MotorType.kBrushless);
     SparkMax bottomMotorIntake = new SparkMax(0, 13, MotorType.kBrushless);
 
-    ProfiledPIDController armPIDController = new ProfiledPIDController(0.3, 0, 0,
-            new Constraints(60, 50));
+    ProfiledPIDController armPIDController = new ProfiledPIDController(0.3, 0.0, 0.00,
+            new Constraints(100, 70));
 
-    ArmFeedforward armFeedforward = new ArmFeedforward(0.0, 0.9, 0.0);
+    ArmFeedforward armFeedforward = new ArmFeedforward(0.0, 0.36, 0.09);
 
     boolean aPressed = false;
     boolean bPressed = false;
     double actionTimer = 0;
 
     String selectedAuto = Robot.kMoveAuto;
+
+    private final Timer matchTimer = new Timer();
 
     public void init() {
 
@@ -61,6 +66,26 @@ public class RobotCode {
 
         topMotorIntake.configure(intakeConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
         bottomMotorIntake.configure(intakeConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
+        matchTimer.reset();
+
+        // Start match time on autonomous start
+        RobotModeTriggers.autonomous().onTrue(Commands.runOnce(() -> {
+            matchTimer.reset();
+            matchTimer.start();
+        }));
+
+        // Start match time on teleop start
+        RobotModeTriggers.teleop().onTrue(Commands.runOnce(() -> {
+            matchTimer.reset();
+            matchTimer.start();
+        }));
+
+        // Stop match time on end of match
+        RobotModeTriggers.disabled().onTrue(Commands.runOnce(() -> {
+            matchTimer.stop();
+            matchTimer.reset();
+        }));
     }
 
     /*
@@ -84,8 +109,29 @@ public class RobotCode {
 
         //// Always run these ////
 
+        if (matchTimer.isRunning() && DriverStation.isDisabled()) {
+            matchTimer.stop();
+        }
+
+        if (DriverStation.isDisabled()) {
+            armPIDController.reset(getArmPositionDegrees());
+        }
+
         SmartDashboard.putNumber("Encoder Arm Position", getArmPositionDegrees());
         SmartDashboard.putNumber("Goal Arm Position ", armPIDController.getSetpoint().position);
+        SmartDashboard.putNumber("PDH Total Current", pdh.getTotalCurrent());
+
+        double[] armPositions = {getArmPositionDegrees(), armPIDController.getSetpoint().position};
+
+        SmartDashboard.putNumberArray("Arm", armPositions);
+
+        if (DriverStation.isAutonomous()) {
+            SmartDashboard.putNumber("Match Time", (15) - matchTimer.get());
+        }
+
+        if (DriverStation.isTeleop()) {
+            SmartDashboard.putNumber("Match Time", (2 * 60 + 15) - matchTimer.get());
+        }
 
         runArmPIDLoop();
 
@@ -93,7 +139,11 @@ public class RobotCode {
 
         if (DriverStation.isAutonomous()) {
             if (selectedAuto.equals(Robot.kMoveAuto)) {
-                swerveSubsystem.setDesiredSpeeds(0.3, 0, 0);
+                if (matchTimer.get() < 3) {
+                    swerveSubsystem.setDesiredSpeeds(0.3, 0, 0);
+                } else {
+                    swerveSubsystem.setDesiredSpeeds(0.0, 0, 0);
+                }
             }
 
             if (selectedAuto.equals(Robot.kStillAuto)) {
@@ -130,12 +180,12 @@ public class RobotCode {
         }
 
         // End Effector / Intake
-        if (driverXboxController.getLeftBumperButton()) {
-            topMotorIntake.set(0.7);
-            bottomMotorIntake.set(0.7);
-        } else if (driverXboxController.getRightBumperButton()) {
+        if (driverXboxController.getRightBumperButton() || driverXboxController.getRightTriggerAxis() > 0.2) {
             topMotorIntake.set(-0.7);
             bottomMotorIntake.set(-0.7);
+        } else if (driverXboxController.getLeftBumperButton() || driverXboxController.getLeftTriggerAxis() > 0.2) {
+            topMotorIntake.set(0.7);
+            bottomMotorIntake.set(0.7);
         } else {
             topMotorIntake.set(0);
             bottomMotorIntake.set(0);
@@ -152,7 +202,9 @@ public class RobotCode {
         double commandedVoltage = ffVoltage + pidVoltage;
 
         // Clamp voltage
-        commandedVoltage = Math.max(-9, Math.min(9, commandedVoltage));
+        commandedVoltage = Math.max(-8, Math.min(8, commandedVoltage));
+
+        SmartDashboard.putNumber("Arm Voltage", commandedVoltage);
 
         leftMotorArm.setVoltage(commandedVoltage);
         rightMotorArm.setVoltage(commandedVoltage);

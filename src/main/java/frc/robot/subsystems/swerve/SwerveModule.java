@@ -3,6 +3,7 @@ package frc.robot.subsystems.swerve;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityVoltage;
@@ -66,7 +67,7 @@ public class SwerveModule {
     private static final boolean USE_COSINE_COMPENSATION = true;
 
     private static final double WHEEL_RADIUS_METERS = Meters.convertFrom(2, Inches);
-    private static final double DRIVE_CONVERSION_FACTOR = 3.0;
+    private static final double DRIVE_CONVERSION_FACTOR = 8.0;
     private final SwerveModuleConfig config;
     private final TalonFX driveMotor;
     private final SparkMax angleMotor;
@@ -97,7 +98,8 @@ public class SwerveModule {
         TalonFXConfiguration driveMotorConfiguration = new TalonFXConfiguration();
         driveMotorConfiguration.CurrentLimits.SupplyCurrentLimit = 40;
         driveMotorConfiguration.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-        driveMotorConfiguration.Slot0.kP = 0.1;
+        driveMotorConfiguration.Slot0.kV =  0.12;
+        driveMotorConfiguration.ClosedLoopRamps.VoltageClosedLoopRampPeriod = 0.6;
         this.driveMotor.getConfigurator().apply(driveMotorConfiguration);
 
         // Angle Motor
@@ -108,6 +110,7 @@ public class SwerveModule {
         angleMotorConfig.smartCurrentLimit(20);
         angleMotorConfig.inverted(config.invertAngleMotor);
         angleMotorConfig.idleMode(IdleMode.kCoast);
+        angleMotorConfig.closedLoopRampRate(0.3);
         this.angleMotor.configure(angleMotorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
         this.absoluteEncoder = new AnalogInput(config.absoluteEncoderPort);
@@ -134,10 +137,10 @@ public class SwerveModule {
             desiredModuleState.speed *= desiredModuleState.angle.minus(getModuleRotation()).getCos();
         }
 
-        SmartDashboard.putNumber(localName + "/speed_output", desiredModuleState.speed / (2 * WHEEL_RADIUS_METERS) * DRIVE_CONVERSION_FACTOR);
+        SmartDashboard.putNumber(localName + "/speed_output", desiredModuleState.speed / (2 * Math.PI * WHEEL_RADIUS_METERS) * DRIVE_CONVERSION_FACTOR);
 
         driveMotor.setControl(
-            new VelocityVoltage(desiredModuleState.speed / (2 * WHEEL_RADIUS_METERS) * DRIVE_CONVERSION_FACTOR)
+            new VelocityVoltage(desiredModuleState.speed / (2 * Math.PI * WHEEL_RADIUS_METERS) * DRIVE_CONVERSION_FACTOR)
         );
 
         angleMotor.setVoltage(
@@ -148,7 +151,7 @@ public class SwerveModule {
         SmartDashboard.putNumber(localName + "/angle", getAbsolutePositionDegrees());
         SmartDashboard.putNumber(localName + "/angle_setpoint", (desiredModuleState.angle.getDegrees() + 360) % 360.0);
 
-        SmartDashboard.putNumber(localName + "/speed", driveMotor.getVelocity().getValue().in(RadiansPerSecond) * WHEEL_RADIUS_METERS);
+        SmartDashboard.putNumber(localName + "/speed", driveMotor.getVelocity().getValue().in(RotationsPerSecond));
         SmartDashboard.putNumber(localName + "/speed_setpoint", desiredModuleState.speed);
     }
 
