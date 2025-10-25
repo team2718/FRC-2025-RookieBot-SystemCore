@@ -75,7 +75,7 @@ public class SwerveModule {
     final Translation2d location;
     private final String localName;
 
-    final PIDController angleController = new PIDController(0.10, 0.0, 0.0);
+    final PIDController angleController = new PIDController(0.15, 0.0, 0.0);
 
     /**
      * Represents a single swerve module in a swerve drive system.

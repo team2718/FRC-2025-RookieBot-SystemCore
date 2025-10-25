@@ -179,6 +179,11 @@ public class RobotCode {
             armPIDController.setGoal(-30);
         }
 
+        // Algae Intake
+        if (driverXboxController.getXButton()) {
+            armPIDController.setGoal(60);
+        }
+
         // End Effector / Intake
         if (driverXboxController.getRightBumperButton() || driverXboxController.getRightTriggerAxis() > 0.2) {
             topMotorIntake.set(-0.7);
